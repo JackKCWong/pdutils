@@ -14,15 +14,17 @@ class HttpAccessor:
             raise AttributeError("a pd.Series is required")
 
     def get(self, concurrency=50):
-        resps = asyncio.run(self.__get())
+        resps = asyncio.run(self.__get(concurrency))
         return pd.Series(resps, index=self._obj.index)
 
-    async def __get(self):
+    async def __get(self, concurrency):
         urls = self._obj.tolist()
+        sem = asyncio.Semaphore(concurrency)
         async def do_get(session, url):
             try:
-                async with session.get(url) as resp:
-                    return [resp.status, await resp.text()]
+                async with sem:
+                    async with session.get(url) as resp:
+                        return [resp.status, await resp.text()]
             except Exception as e:
                 return [0, str(e)]
 
